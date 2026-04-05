@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShieldCheck | Password Strength Evaluator</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #38bdf8;
+            --text: #f8fafc;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #22c55e;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        input {
+            width: 85%;
+            padding: 1rem 12% 1rem 1rem;
+            border-radius: 0.75rem;
+            background: #334155;
+            border: 2px solid transparent;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.2);
+        }
+
+        .toggle-btn {
+            position: absolute;
+            right: 1.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0;
+        }
+
+        button.check-btn {
+            width: 100%;
+            padding: 1rem;
+            background: var(--accent);
+            border: none;
+            border-radius: 0.75rem;
+            color: var(--bg);
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        button.check-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .results {
+            margin-top: 2rem;
+            text-align: left;
+            display: none;
+        }
+
+        .meter-container {
+            height: 10px;
+            background: #334155;
+            border-radius: 5px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+
+        #meter-bar {
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease, background-color 0.5s;
+        }
+
+        #strength-label {
+            font-weight: 800;
+            font-size: 1.2rem;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        #score-display {
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+
+        ul#feedback {
+            margin-top: 1rem;
+            padding-left: 1.2rem;
+            color: #cbd5e1;
+            font-size: 0.9rem;
+        }
+
+        li { margin-bottom: 0.4rem; }
+
+        .weak { color: var(--danger); }
+        .moderate { color: var(--warning); }
+        .strong { color: var(--success); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ShieldCheck</h1>
+        <div class="input-group">
+            <input type="password" id="password" placeholder="Enter password to check...">
+            <button class="toggle-btn" id="toggle" title="Show/Hide">👁️</button>
+        </div>
+        <button class="check-btn" onclick="checkStrength()">Analyze Security</button>
+
+        <div class="results" id="results">
+            <span id="strength-label"></span>
+            <span id="score-display"></span>
+            <div class="meter-container">
+                <div id="meter-bar"></div>
+            </div>
+            <ul id="feedback"></ul>
+        </div>
+    </div>
+
+    <script>
+        const passInput = document.getElementById('password');
+        const toggleBtn = document.getElementById('toggle');
+        const resultsDiv = document.getElementById('results');
+        const strengthLbl = document.getElementById('strength-label');
+        const meterBar = document.getElementById('meter-bar');
+        const scoreDisplay = document.getElementById('score-display');
+        const feedbackList = document.getElementById('feedback');
+
+        toggleBtn.onclick = () => {
+            const isPass = passInput.type === 'password';
+            passInput.type = isPass ? 'text' : 'password';
+            toggleBtn.textContent = isPass ? '🔒' : '👁️';
+        };
+
+        async function checkStrength() {
+            const password = passInput.value;
+            if (!password) return;
+
+            try {
+                const res = await fetch('/check-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json();
+
+                // UI Logic
+                resultsDiv.style.display = 'block';
+                strengthLbl.textContent = data.strength;
+                scoreDisplay.textContent = `Security Score: ${data.score}/100`;
+                
+                // Color Logic
+                let color = 'var(--danger)';
+                if (data.strength === 'Moderate') color = 'var(--warning)';
+                if (data.strength === 'Strong') color = 'var(--success)';
+
+                strengthLbl.className = data.strength.toLowerCase();
+                meterBar.style.width = data.score + '%';
+                meterBar.style.backgroundColor = color;
+
+                // Feedback
+                feedbackList.innerHTML = '';
+                if (data.feedback.length > 0) {
+                    data.feedback.forEach(item => {
+                        const li = document.createElement('li');
+                        li.textContent = item;
+                        feedbackList.appendChild(li);
+                    });
+                } else if (data.score === 100) {
+                    feedbackList.innerHTML = '<li>Maximum security reached!</li>';
+                }
+            } catch (err) {
+                console.error("Error connecting to Antigravity engine:", err);
+            }
+        }
+    </script>
+</body>
+</html>
